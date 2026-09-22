@@ -1,0 +1,15 @@
+{
+  "name": "assignment1_he194802",
+  "version": "1.0.0",
+  "description": "1. Đoàn Duy Khương\r 2. HE194802\r 3.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
