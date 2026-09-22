@@ -1,197 +1,210 @@
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
-const express = require('express');
-const fs = require('fs');
+const router = express.Router();
 
-const filePath = './data.json';
+const dataPath = path.join(__dirname, "..", "data.json");
 
-const articleRouter = express.Router();
+function readData() {
+    const data = fs.readFileSync(dataPath, "utf8");
 
-articleRouter.use(express.json());
-
-// Read data from data.json
-const readData = async () => {
-    const data = await fs.promises.readFile(filePath, 'utf8');
     return JSON.parse(data);
-};
+}
 
-// Write data to data.json
-const writeData = async (data) => {
-    await fs.promises.writeFile(
-        filePath,
-        JSON.stringify(data, null, 2)
+function writeData(data) {
+    fs.writeFileSync(
+        dataPath,
+        JSON.stringify(data, null, 2),
+        "utf8"
     );
-};
+}
+
+router.get("/", (req, res) => {
+
+    const data = readData();
+
+    res.status(200).json(data.comments);
+
+});
+
+router.get("/:id", (req, res) => {
+
+    const data = readData();
+
+    const id = parseInt(req.params.id);
+
+    const comment = data.comments.find(
+        comment => comment.id === id
+    );
 
 
-// ==================== ARTICLES ====================
+    if (!comment) {
 
-// GET /articles
-// Get all articles
-articleRouter.route('/')
-    .get(async (req, res) => {
-        try {
-            const data = await readData();
+        return res.status(404).json({
+            message: "Comment not found"
+        });
 
-            res.status(200).json(data.articles);
-        } catch (err) {
-            res.status(500).json({
-                message: err.message
+    }
+
+    res.status(200).json(comment);
+
+});
+
+router.post("/", (req, res) => {
+
+    const data = readData();
+
+    const {
+        articleId,
+        author,
+        content,
+        date
+    } = req.body;
+
+    if (!articleId || !author || !content || !date) {
+
+        return res.status(400).json({
+            message: "articleId, author, content and date are required"
+        });
+
+    }
+
+    const article = data.articles.find(
+        article => article.id === parseInt(articleId)
+    );
+
+
+    if (!article) {
+
+        return res.status(404).json({
+            message: "Article not found"
+        });
+
+    }
+
+    let newId = 1;
+
+    if (data.comments.length > 0) {
+
+        newId =
+            Math.max(
+                ...data.comments.map(comment => comment.id)
+            ) + 1;
+
+    }
+
+    const newComment = {
+
+        id: newId,
+        articleId: parseInt(articleId),
+        author: author,
+        content: content,
+        date: date
+
+    };
+
+    data.comments.push(newComment);
+
+    writeData(data);
+
+    res.status(201).json(newComment);
+
+});
+
+router.put("/:id", (req, res) => {
+
+    const data = readData();
+
+    const id = parseInt(req.params.id);
+
+
+    const comment = data.comments.find(
+        comment => comment.id === id
+    );
+
+    if (!comment) {
+
+        return res.status(404).json({
+            message: "Comment not found"
+        });
+
+    }
+
+    const {
+        articleId,
+        author,
+        content,
+        date
+    } = req.body;
+
+    if (articleId !== undefined) {
+
+        const article = data.articles.find(
+            article => article.id === parseInt(articleId)
+        );
+
+        if (!article) {
+
+            return res.status(404).json({
+                message: "Article not found"
             });
+
         }
-    })
 
-    // POST /articles
-    // Create a new article
-    .post(async (req, res) => {
-        try {
-            const data = await readData();
-            const articles = data.articles;
+        comment.articleId = parseInt(articleId);
 
-            const newArticle = {
-                id: articles.length > 0
-                    ? articles[articles.length - 1].id + 1
-                    : 1,
+    }
 
-                title: req.body.title,
-                date: req.body.date,
-                content: req.body.content,
-                author: req.body.author
-            };
+    if (author !== undefined) {
+        comment.author = author;
+    }
 
-            articles.push(newArticle);
+    if (content !== undefined) {
+        comment.content = content;
+    }
 
-            // Write the whole data object
-            await writeData(data);
+    if (date !== undefined) {
+        comment.date = date;
+    }
 
-            res.status(201).json(newArticle);
+    writeData(data);
 
-        } catch (err) {
-            res.status(400).json({
-                message: err.message
-            });
-        }
+    res.status(200).json(comment);
+
+});
+
+
+router.delete("/:id", (req, res) => {
+
+    const data = readData();
+
+    const id = parseInt(req.params.id);
+
+
+    const index = data.comments.findIndex(
+        comment => comment.id === id
+    );
+
+
+    if (index === -1) {
+
+        return res.status(404).json({
+            message: "Comment not found"
+        });
+
+    }
+
+    const deletedComment =
+        data.comments.splice(index, 1)[0];
+
+    writeData(data);
+
+    res.status(200).json({
+        message: "Comment deleted successfully",
+        comment: deletedComment
     });
 
+});
 
-// ==================== ARTICLE BY ID ====================
-
-// GET /articles/:id
-// Get one article
-articleRouter.route('/:id')
-    .get(async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-
-            const data = await readData();
-            const articles = data.articles;
-
-            const article = articles.find(
-                article => article.id === id
-            );
-
-            if (!article) {
-                return res.status(404).json({
-                    message: 'Article not found'
-                });
-            }
-
-            res.status(200).json(article);
-
-        } catch (err) {
-            res.status(500).json({
-                message: err.message
-            });
-        }
-    })
-
-    // PUT /articles/:id
-    // Update an article
-    .put(async (req, res) => {
-        try {
-            const data = await readData();
-            const articles = data.articles;
-
-            const index = articles.findIndex(
-                article => article.id === parseInt(req.params.id)
-            );
-
-            if (index === -1) {
-                return res.status(404).json({
-                    message: 'Article not found'
-                });
-            }
-
-            articles[index] = {
-                ...articles[index],
-                ...req.body
-            };
-
-            await writeData(data);
-
-            res.status(200).json(articles[index]);
-
-        } catch (err) {
-            res.status(500).json({
-                message: err.message
-            });
-        }
-    })
-
-    // DELETE /articles/:id
-    // Delete an article
-    .delete(async (req, res) => {
-        try {
-            const data = await readData();
-            const articles = data.articles;
-
-            const index = articles.findIndex(
-                article => article.id === parseInt(req.params.id)
-            );
-
-            if (index === -1) {
-                return res.status(404).json({
-                    message: 'Article not found'
-                });
-            }
-
-            const deletedArticle = articles.splice(index, 1);
-
-            await writeData(data);
-
-            res.status(200).json(deletedArticle[0]);
-
-        } catch (err) {
-            res.status(500).json({
-                message: err.message
-            });
-        }
-    });
-
-
-// ==================== COMMENTS OF ARTICLE ====================
-
-// GET /articles/:id/comments
-// Get all comments of an article
-articleRouter.route('/:id/comments')
-    .get(async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-
-            const data = await readData();
-
-            const comments = data.comments.filter(
-                comment => comment.articleId === id
-            );
-
-            res.status(200).json(comments);
-
-        } catch (err) {
-            res.status(500).json({
-                message: err.message
-            });
-        }
-    });
-
-
-module.exports = articleRouter;
-
+module.exports = router;

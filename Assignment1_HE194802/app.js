@@ -1,16 +1,18 @@
-const express = require('express');
+const express = require("express");
+
+const articleRouter = require("./routers/articleRouter");
+const commentRouter = require("./routers/commentRouter");
+
 const app = express();
-const port = 3000;
 
-// Import routers
-const articleRouter = require('./routers/articleRouter');
-const commentRouter = require('./routers/commentRouter');
+const PORT = 3000;
 
-app.use('/articles', articleRouter);
-app.use('/comments', commentRouter);
+app.use(express.json());
 
-app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`);
+app.use("/articles", articleRouter);
+
+app.use("/comments", commentRouter);
+
+app.listen(PORT, () => {
+    console.log(`Server is running at http://localhost:${PORT}`);
 });
-
-module.exports = app;
